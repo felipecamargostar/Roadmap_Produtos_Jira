@@ -1,3 +1,12 @@
+/**
+ * GET /api/roadmap
+ *
+ * Fetches Cycle 2 epics from Jira in parallel and transforms them into
+ * the RoadmapData shape consumed by the frontend.
+ *
+ * Cached for 5 minutes (revalidate: 300) via Next.js.
+ * Requires env vars: JIRA_EMAIL, JIRA_API_TOKEN (set in Vercel dashboard).
+ */
 import { NextResponse } from "next/server";
 import { fetchAllEpics, fetchActiveSprintIssues, fetchNextSprintIssues } from "@/lib/jira";
 import { transformToRoadmap } from "@/lib/transform";
@@ -14,6 +23,7 @@ export async function GET() {
     );
   }
 
+  // Fetch epics + sprint stories in parallel for performance
   const [epics, activeStories, nextStories] = await Promise.all([
     fetchAllEpics(),
     fetchActiveSprintIssues(),

@@ -1,3 +1,13 @@
+/**
+ * jira.ts — Jira REST API v3 client
+ *
+ * Uses POST /rest/api/3/search/jql (cursor-based pagination via nextPageToken).
+ * The legacy GET /rest/api/3/search endpoint returns 410 Gone — do not use it.
+ *
+ * Auth: Basic Auth (email + API token), base64-encoded.
+ * Cache: 5 minutes (revalidate: 300) via Next.js fetch cache.
+ */
+
 const BASE_URL = process.env.JIRA_BASE_URL || "https://starbemapp.atlassian.net";
 const EMAIL = process.env.JIRA_EMAIL || "";
 const TOKEN = process.env.JIRA_API_TOKEN || "";
@@ -87,6 +97,10 @@ const EPIC_FIELDS = [
 // - Done/finalized during Cycle 2 (recently completed)
 const EPIC_JQL = `project = ${PROJECT} AND issuetype = Epic AND (status != "FINALIZADO" OR updated >= "${CYCLE2_START}") ORDER BY status ASC, created DESC`;
 
+/**
+ * Fetches all Cycle 2 epics, paginating until exhausted.
+ * Returns up to several hundred epics depending on project size.
+ */
 export async function fetchAllEpics(): Promise<JiraIssue[]> {
   const all: JiraIssue[] = [];
   let nextPageToken: string | undefined;
@@ -108,6 +122,11 @@ export async function fetchAllEpics(): Promise<JiraIssue[]> {
 
 const STORY_FIELDS = ["summary", "status", "customfield_10020", "parent", "issuetype"];
 
+/**
+ * Fetches stories/tasks in active sprints.
+ * Note: activeSprints() JQL requires board context — may return empty without it.
+ * The primary active-sprint detection uses the epic's own sprint state field instead.
+ */
 export async function fetchActiveSprintIssues(): Promise<JiraIssue[]> {
   const data = await jiraSearch({
     jql: `project = ${PROJECT} AND issuetype in (Story, Task, Melhoria) AND sprint in activeSprints()`,
@@ -117,6 +136,10 @@ export async function fetchActiveSprintIssues(): Promise<JiraIssue[]> {
   return data.issues;
 }
 
+/**
+ * Fetches stories/tasks in future (upcoming) sprints.
+ * Used as fallback — primary detection via epic sprint state.
+ */
 export async function fetchNextSprintIssues(): Promise<JiraIssue[]> {
   const data = await jiraSearch({
     jql: `project = ${PROJECT} AND issuetype in (Story, Task, Melhoria) AND sprint in futureSprints()`,

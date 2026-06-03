@@ -1,3 +1,13 @@
+/**
+ * types/index.ts — Shared TypeScript interfaces for the Starbem Roadmap
+ *
+ * Squad board IDs (Jira):
+ *   628 → Jornada do Paciente
+ *   629 → Jornada do Profissional
+ *   630 → HR Experience
+ *    67 → Jornada do Parceiro
+ */
+
 export type Squad =
   | "Jornada do Paciente"
   | "Jornada do Parceiro"
