@@ -453,6 +453,76 @@ export default function OKRDashboard({ data }: Props) {
       {/* Squad x OKR matrix */}
       <SquadOKRMatrix data={data} />
 
+      {/* Atlas Goals */}
+      {data.atlasGoals && data.atlasGoals.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Goals do Atlassian ({data.atlasGoals.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.atlasGoals.map((goal) => {
+              const statusColor =
+                goal.status === "ON_TRACK" ? "#059669" :
+                goal.status === "AT_RISK" ? "#d97706" :
+                goal.status === "DONE" ? "#6366f1" :
+                goal.status === "PAUSED" ? "#94a3b8" :
+                "#64748b"; // PENDING / default
+              const statusLabel =
+                goal.status === "ON_TRACK" ? "No prazo" :
+                goal.status === "AT_RISK" ? "Em risco" :
+                goal.status === "DONE" ? "Concluído" :
+                goal.status === "PAUSED" ? "Pausado" :
+                "Pendente";
+              return (
+                <a
+                  key={goal.id}
+                  href={goal.url ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-brand-500 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <span className="text-xs font-medium text-gray-800 leading-snug group-hover:text-brand-600 line-clamp-2">
+                      {goal.name}
+                    </span>
+                    <span
+                      className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                      style={{ background: statusColor + "20", color: statusColor }}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-gray-400">
+                      <span>Progresso</span>
+                      <span className="font-semibold text-gray-600">{goal.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${goal.progress}%`, background: statusColor }}
+                      />
+                    </div>
+                  </div>
+                  {goal.targetDate && (
+                    <p className="mt-2 text-[10px] text-gray-400">
+                      Meta: {new Date(goal.targetDate).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+                    </p>
+                  )}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {data.atlasGoals !== undefined && data.atlasGoals.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+          <strong>Atlas Goals não carregados.</strong> A API do Atlas requer OAuth2. Configure a variável{" "}
+          <code className="bg-amber-100 px-1 rounded">ATLAS_ACCESS_TOKEN</code> no Vercel ou use o Personal Access Token.
+        </div>
+      )}
+
       {/* KR cards */}
       <div>
         <h3 className="text-sm font-semibold text-gray-700 mb-3">

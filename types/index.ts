@@ -67,6 +67,18 @@ export interface SquadStats {
   currentEpics: RoadmapEpic[];
 }
 
+export interface AtlasGoal {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  progress: number;
+  owner?: { accountId: string; displayName: string };
+  targetDate?: string;
+  parentGoalId?: string | null;
+  url?: string;
+}
+
 export interface RoadmapData {
   cycle: {
     number: number;
@@ -86,5 +98,6 @@ export interface RoadmapData {
     next: number;
     backlog: number;
   };
+  atlasGoals?: AtlasGoal[];
   lastUpdated: string;
 }

@@ -8,7 +8,7 @@
  * Requires env vars: JIRA_EMAIL, JIRA_API_TOKEN (set in Vercel dashboard).
  */
 import { NextResponse } from "next/server";
-import { fetchAllEpics, fetchActiveSprintIssues, fetchNextSprintIssues } from "@/lib/jira";
+import { fetchAllEpics, fetchActiveSprintIssues, fetchNextSprintIssues, fetchAtlasGoals } from "@/lib/jira";
 import { transformToRoadmap } from "@/lib/transform";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +23,15 @@ export async function GET() {
     );
   }
 
-  // Fetch epics + sprint stories in parallel for performance
-  const [epics, activeStories, nextStories] = await Promise.all([
+  // Fetch epics, sprint stories, and Atlas Goals in parallel
+  const [epics, activeStories, nextStories, atlasGoals] = await Promise.all([
     fetchAllEpics(),
     fetchActiveSprintIssues(),
     fetchNextSprintIssues(),
+    fetchAtlasGoals(),
   ]);
 
   const data = transformToRoadmap(epics, activeStories, nextStories);
-  return NextResponse.json(data);
+  // Attach Atlas Goals to the response (null = API unavailable)
+  return NextResponse.json({ ...data, atlasGoals: atlasGoals ?? [] });
 }
