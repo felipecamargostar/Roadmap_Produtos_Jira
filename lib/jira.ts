@@ -259,3 +259,83 @@ export async function fetchAllGoals(fresh = false): Promise<Goal[]> {
 
   return goals;
 }
+
+// ─── Atlas Goals ────────────────────────────────────────────────────────────
+
+export interface AtlasGoal {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;   // PENDING | ON_TRACK | AT_RISK | PAUSED | DONE
+  progress: number; // 0–100
+  owner?: { accountId: string; displayName: string };
+  targetDate?: string;
+  parentGoalId?: string | null;
+  url?: string;
+}
+
+const FELIPE_ACCOUNT_ID = "712020:8db21c85-fdd4-408a-ab41-21bfab84851c";
+
+// Try Atlas Goals endpoints in order — the first 2xx wins.
+const ATLAS_GOALS_ENDPOINTS = [
+  `https://api.atlassian.com/jsm/goals/cloudid/${CLOUD_ID}/v1/goals`,
+  `https://api.atlassian.com/jsm/goals/v2/${CLOUD_ID}/goals`,
+  `${BASE_URL}/gateway/api/goals/v1/goals`,
+  `${BASE_URL}/rest/goals/1.0/goals`,
+];
+
+async function tryAtlasGoalsEndpoints(): Promise<AtlasGoal[] | null> {
+  for (const url of ATLAS_GOALS_ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: authHeader(),
+          Accept: "application/json",
+        },
+        next: { revalidate: 300 },
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      // Normalise response shape across endpoint versions
+      const raw: unknown[] =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.goals) ? data.goals :
+        Array.isArray(data?.values) ? data.values :
+        Array.isArray(data?.data) ? data.data : [];
+      if (raw.length === 0) continue;
+      return raw.map((item: unknown) => {
+        const g = item as Record<string, unknown>;
+        return ({
+        id: String(g.id ?? g.goalId ?? ""),
+        name: String(g.name ?? g.title ?? ""),
+        description: typeof g.description === "string" ? g.description : undefined,
+        status: String(g.status ?? g.state ?? "PENDING").toUpperCase(),
+        progress: Number(g.progress ?? g.completionPercentage ?? 0),
+        owner: g.owner
+          ? { accountId: String((g.owner as Record<string, unknown>).accountId ?? ""), displayName: String((g.owner as Record<string, unknown>).displayName ?? "") }
+          : undefined,
+        targetDate: typeof g.targetDate === "string" ? g.targetDate : typeof g.dueDate === "string" ? g.dueDate : undefined,
+        parentGoalId: g.parentGoalId != null ? String(g.parentGoalId) : null,
+        url: typeof g.url === "string" ? g.url : `https://starbemapp.atlassian.net/jira/goals`,
+        });
+      });
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetches Atlas Goals owned by felipe.camargo.
+ * Falls back to returning null if no Atlas endpoint responds successfully.
+ */
+export async function fetchAtlasGoals(): Promise<AtlasGoal[] | null> {
+  const goals = await tryAtlasGoalsEndpoints();
+  if (!goals) return null;
+  // Filter to only goals owned by Felipe (or all if no owner info)
+  const filtered = goals.filter(
+    (g) => !g.owner?.accountId || g.owner.accountId === FELIPE_ACCOUNT_ID
+  );
+  return filtered.length > 0 ? filtered : goals;
+}
