@@ -78,7 +78,7 @@ export const SQUAD_META: Record<Squad, { color: string; bg: string }> = {
 // ─── Status colours ─────────────────────────────────────────────────────────
 export const STATUS_META: Record<RoadmapStatus, { label: string; color: string; bg: string }> = {
   done: { label: "Finalizado", color: "#059669", bg: "#d1fae5" },
-  in_test: { label: "Em Teste", color: "#d97706", bg: "#fef3c7" },
+  in_test: { label: "Homologação", color: "#d97706", bg: "#fef3c7" },
   current: { label: "Sprint Atual", color: "#2563eb", bg: "#dbeafe" },
   next: { label: "Próximo Sprint", color: "#7c3aed", bg: "#ede9fe" },
   backlog: { label: "Backlog / Discovery", color: "#64748b", bg: "#f1f5f9" },
@@ -143,16 +143,26 @@ function teamToSquad(team: { name?: string; title?: string } | null | undefined)
 // Classificação dirigida pela SPRINT (não mais por palavras-chave do status):
 // estados terminais (finalizado/homologando) têm prioridade; depois, sprint
 // ativa → "atual", sprint futura → "próximo".
+// Também: se a startDate do épico cai dentro da próxima sprint do ciclo,
+// o status recebe "next" mesmo que o épico não esteja vinculado à sprint.
 function epicRoadmapStatus(
   jiraStatus: string,
   isInActiveSprint: boolean,
-  isInNextSprint: boolean
+  isInNextSprint: boolean,
+  startDate?: string
 ): RoadmapStatus {
   const s = jiraStatus.toUpperCase();
   if (s === "FINALIZADO" || s === "DONE") return "done";
   if (s === "HOMOLOGANDO") return "in_test";
   if (isInActiveSprint) return "current";
   if (isInNextSprint) return "next";
+  if (startDate) {
+    const today = new Date().toISOString().slice(0, 10);
+    const nextSprint = CYCLE_SPRINTS.find((sp) => sp.startDate > today);
+    if (nextSprint && startDate >= nextSprint.startDate && startDate <= nextSprint.endDate) {
+      return "next";
+    }
+  }
   return "backlog";
 }
 
@@ -238,11 +248,12 @@ export function transformToRoadmap(epics: JiraIssue[], goals: Goal[]): RoadmapDa
       if (!squad || (!hasActiveSprint && !hasFutureSprint)) return null;
 
       const jiraStatus = epic.fields.status.name;
+      const { startDate, endDate, dateSource, sprints } = epicWindow(epic);
       // Classificação dirigida pela sprint: ativa → atual; só futura → próximo.
+      // Também verifica se a startDate cai na próxima sprint do ciclo.
       const isActive = hasActiveSprint;
       const isNext = !hasActiveSprint && hasFutureSprint;
-      const roadmapStatus = epicRoadmapStatus(jiraStatus, isActive, isNext);
-      const { startDate, endDate, dateSource, sprints } = epicWindow(epic);
+      const roadmapStatus = epicRoadmapStatus(jiraStatus, isActive, isNext, startDate);
       const desc = epic.fields.description;
 
       // OKRs reais vinculados via campo Goals (customfield_10049 → ARIs).

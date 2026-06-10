@@ -22,7 +22,7 @@ const SQUADS: Squad[] = [
 
 const ROW_H = 40;          // altura de cada linha de épico (px)
 const LABEL_W = 260;       // largura da coluna de rótulo (px)
-const HEADER_H = 76;       // altura do cabeçalho (meses + sprints + hoje)
+const HEADER_H = 44;       // altura do cabeçalho (apenas sprints + hoje)
 const DAY = 86400000;
 const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -450,36 +450,25 @@ export default function RoadmapTimeline({ data }: Props) {
                   style={{
                     left: `${mc.startPct}%`,
                     width: `${mc.endPct - mc.startPct}%`,
-                    top: 18,
+                    top: 0,
                     bottom: 0,
                     background: mc.even ? "transparent" : "#f1f5f9",
                   }}
                 />
               ))}
 
-              {/* divisórias de mês (do rótulo até a base) */}
+              {/* divisórias de mês */}
               {monthCols.map((mc, i) =>
                 i === 0 ? null : (
                   <div
                     key={`hg-${mc.label}`}
                     className="absolute border-l border-gray-300 z-0"
-                    style={{ left: `${mc.startPct}%`, top: 18, bottom: 0 }}
+                    style={{ left: `${mc.startPct}%`, top: 0, bottom: 0 }}
                   />
                 )
               )}
 
-              {/* rótulos de mês alinhados ao início do mês */}
-              {monthCols.map((mc) => (
-                <div
-                  key={mc.label}
-                  className="absolute text-[11px] font-semibold text-gray-500 capitalize z-10"
-                  style={{ left: `${mc.startPct}%`, top: 22, paddingLeft: 6 }}
-                >
-                  {mc.label}
-                </div>
-              ))}
-
-              {/* régua de sprints */}
+              {/* régua de sprints — ocupa todo o cabeçalho */}
               {visibleSprints.map(({ s, leftPct, widthPct }) => (
                 <div
                   key={s.number}
@@ -490,11 +479,11 @@ export default function RoadmapTimeline({ data }: Props) {
                       ? "bg-gray-100 border-gray-200"
                       : "bg-violet-50 border-violet-200"
                   }`}
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: 42, height: 28 }}
+                  style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: 4, height: 36 }}
                   title={`${s.label} · ${fmtDay(dms(s.startDate))} – ${fmtDay(dms(s.endDate))}`}
                 >
                   <div
-                    className={`text-[10px] font-semibold leading-tight mt-0.5 truncate px-1 ${
+                    className={`text-[11px] font-semibold leading-tight mt-1 truncate px-1 ${
                       s.isCurrent ? "text-brand-700" : s.isPast ? "text-gray-500" : "text-violet-700"
                     }`}
                   >
@@ -512,11 +501,11 @@ export default function RoadmapTimeline({ data }: Props) {
                 <>
                   <div
                     className="absolute border-l-2 border-rose-400/70 z-20"
-                    style={{ left: `${todayPct}%`, top: 16, bottom: 0 }}
+                    style={{ left: `${todayPct}%`, top: 0, bottom: 0 }}
                   />
                   <div
                     className="absolute z-30"
-                    style={{ left: `${todayPct}%`, top: 0, transform: "translateX(-50%)" }}
+                    style={{ left: `${todayPct}%`, top: 2, transform: "translateX(-50%)" }}
                   >
                     <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full whitespace-nowrap">
                       hoje
