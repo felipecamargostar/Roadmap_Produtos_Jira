@@ -23,15 +23,24 @@ export async function GET() {
     );
   }
 
-  // Fetch epics, sprint stories, and Atlas Goals in parallel
-  const [epics, activeStories, nextStories, atlasGoals] = await Promise.all([
-    fetchAllEpics(),
-    fetchActiveSprintIssues(),
-    fetchNextSprintIssues(),
-    fetchAtlasGoals(),
+  let epics: Awaited<ReturnType<typeof fetchAllEpics>> = [];
+  let activeStories: Awaited<ReturnType<typeof fetchActiveSprintIssues>> = [];
+  let nextStories: Awaited<ReturnType<typeof fetchNextSprintIssues>> = [];
+  let atlasGoals: Awaited<ReturnType<typeof fetchAtlasGoals>> = null;
+  const fetchErrors: string[] = [];
+
+  // Fetch each source independently so one failure doesn't block the others
+  await Promise.allSettled([
+    fetchAllEpics().then((r) => { epics = r; }).catch((e) => { fetchErrors.push(`epics: ${e?.message ?? e}`); }),
+    fetchActiveSprintIssues().then((r) => { activeStories = r; }).catch((e) => { fetchErrors.push(`activeSprints: ${e?.message ?? e}`); }),
+    fetchNextSprintIssues().then((r) => { nextStories = r; }).catch((e) => { fetchErrors.push(`nextSprints: ${e?.message ?? e}`); }),
+    fetchAtlasGoals().then((r) => { atlasGoals = r; }).catch((e) => { fetchErrors.push(`atlasGoals: ${e?.message ?? e}`); }),
   ]);
 
   const data = transformToRoadmap(epics, activeStories, nextStories);
-  // Attach Atlas Goals to the response (null = API unavailable)
-  return NextResponse.json({ ...data, atlasGoals: atlasGoals ?? [] });
+  return NextResponse.json({
+    ...data,
+    atlasGoals: atlasGoals ?? [],
+    ...(fetchErrors.length > 0 ? { fetchErrors } : {}),
+  });
 }
