@@ -106,3 +106,4 @@ Configurar no painel da Vercel em Settings > Environment Variables:
 ```bash
 npx vercel --prod --yes
 ```
+.
