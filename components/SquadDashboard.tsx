@@ -1,7 +1,7 @@
 "use client";
 
 import type { RoadmapData, SquadStats, RoadmapEpic } from "@/types";
-import { SQUAD_META, STATUS_META, KR_META } from "@/lib/transform";
+import { SQUAD_META, STATUS_META } from "@/lib/transform";
 
 interface Props {
   data: RoadmapData;
@@ -24,7 +24,6 @@ function ProgressBar({ value, total, color }: { value: number; total: number; co
 
 function EpicRow({ epic }: { epic: RoadmapEpic }) {
   const sm = STATUS_META[epic.roadmapStatus];
-  const km = KR_META[epic.kr];
   return (
     <a
       href={epic.jiraUrl}
@@ -43,12 +42,18 @@ function EpicRow({ epic }: { epic: RoadmapEpic }) {
         <span className="text-[10px] text-gray-400 font-mono">{epic.key}</span>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-          style={{ background: km.color + "20", color: km.color }}
-        >
-          {epic.kr}
-        </span>
+        {epic.hasGoal ? (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-600"
+            title={epic.goals.map((g) => `${g.key} · ${g.name}`).join("\n")}
+          >
+            🎯 {epic.goals[0].key}
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-400">
+            Sem OKR
+          </span>
+        )}
         <span
           className="text-[10px] px-1.5 py-0.5 rounded-full"
           style={{ background: sm.bg, color: sm.color }}
@@ -137,43 +142,35 @@ function SquadCard({ stats, currentSprint }: { stats: SquadStats; currentSprint:
           </div>
         </div>
 
-        {/* OKR breakdown */}
+        {/* Cobertura de OKR */}
         <div>
           <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-            Por OKR
+            Cobertura de OKR
           </h4>
-          <div className="space-y-1.5">
-            {(Object.entries(stats.byKR) as [string, number][])
-              .sort((a, b) => b[1] - a[1])
-              .map(([kr, count]) => {
-                const km = KR_META[kr as keyof typeof KR_META] ?? { color: "#94a3b8", label: kr };
-                return (
-                  <div key={kr}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ background: km.color }}
-                        />
-                        <span className="text-xs text-gray-600">{kr}</span>
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: km.color }}>
-                        {count}
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${(count / stats.total) * 100}%`,
-                          background: km.color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+          {(() => {
+            const pctOkr = stats.total > 0 ? Math.round((stats.withGoal / stats.total) * 100) : 0;
+            const semOkr = stats.total - stats.withGoal;
+            return (
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold" style={{ color: m.color }}>
+                    {pctOkr}%
+                  </span>
+                  <span className="text-xs text-gray-500">dos épicos com OKR</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pctOkr}%`, background: m.color }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-emerald-600 font-medium">{stats.withGoal} com OKR</span>
+                  <span className="text-gray-400">{semOkr} sem OKR</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

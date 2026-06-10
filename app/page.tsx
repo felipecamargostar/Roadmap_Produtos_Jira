@@ -38,7 +38,15 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-function Header({ data }: { data: RoadmapData }) {
+function Header({
+  data,
+  onRefresh,
+  refreshing,
+}: {
+  data: RoadmapData;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
   const curSprint = data.cycle.sprints.find((s) => s.isCurrent);
   const { summary } = data;
 
@@ -94,13 +102,24 @@ function Header({ data }: { data: RoadmapData }) {
             ))}
           </div>
 
-          {/* Last updated */}
-          <div className="text-[10px] text-gray-400 hidden md:block">
-            Atualizado{" "}
-            {new Date(data.lastUpdated).toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+          {/* Last updated + refresh */}
+          <div className="flex items-center gap-2">
+            <div className="text-[10px] text-gray-400 hidden md:block">
+              Atualizado{" "}
+              {new Date(data.lastUpdated).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+            <button
+              onClick={onRefresh}
+              disabled={refreshing}
+              title="Buscar dados frescos do Jira agora"
+              className="flex items-center gap-1.5 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 disabled:opacity-50 transition"
+            >
+              <span className={refreshing ? "animate-spin" : ""}>↻</span>
+              {refreshing ? "Atualizando…" : "Atualizar"}
+            </button>
           </div>
         </div>
       </div>
@@ -112,13 +131,17 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("roadmap");
   const [data, setData] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
+  async function load(fresh = false) {
+    if (fresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/roadmap");
+      const res = await fetch(`/api/roadmap${fresh ? "?refresh=1" : ""}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -128,6 +151,7 @@ export default function Home() {
       setError(e instanceof Error ? e.message : "Erro desconhecido");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -135,7 +159,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {data && <Header data={data} />}
+      {data && <Header data={data} onRefresh={() => load(true)} refreshing={refreshing} />}
 
       {/* Tab navigation */}
       <div className="bg-white border-b border-gray-200 sticky top-[60px] z-10">

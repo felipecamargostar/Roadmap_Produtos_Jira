@@ -4,9 +4,12 @@ import type {
   RoadmapEpic,
   RoadmapStatus,
   Squad,
-  KRKey,
   CycleSprint,
-  KRStats,
+  Goal,
+  GoalRef,
+  GoalCoverage,
+  OKRSummary,
+  SprintInfo,
   SquadStats,
 } from "@/types";
 
@@ -46,15 +49,22 @@ export function currentSprintNumber(): number {
   return CYCLE_SPRINTS.find((s) => s.isCurrent)?.number ?? 3;
 }
 
-// ─── KR metadata ───────────────────────────────────────────────────────────
-export const KR_META: Record<KRKey, { label: string; color: string }> = {
-  KR1: { label: "KR1 · Ecossistema Conectado", color: "#6366f1" },
-  KR2: { label: "KR2 · StarBrain Health Coach", color: "#ec4899" },
-  KR3: { label: "KR3 · WhatsApp como canal estratégico", color: "#14b8a6" },
-  KR4: { label: "KR4 · NPS ≥ 80 Profissionais", color: "#f97316" },
-  KR5: { label: "KR5 · Portal RH Enterprise", color: "#8b5cf6" },
-  "Sem OKR": { label: "Sem OKR", color: "#94a3b8" },
+// ─── Goal (OKR) status metadata ──────────────────────────────────────────────
+// Status do Atlassian Goals. Cores alinhadas à convenção do próprio Atlas.
+export const GOAL_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  on_track: { label: "No prazo", color: "#059669", bg: "#d1fae5" },
+  at_risk: { label: "Em risco", color: "#d97706", bg: "#fef3c7" },
+  off_track: { label: "Atrasado", color: "#dc2626", bg: "#fee2e2" },
+  pending: { label: "Não iniciado", color: "#64748b", bg: "#f1f5f9" },
+  paused: { label: "Pausado", color: "#64748b", bg: "#f1f5f9" },
+  done: { label: "Concluído", color: "#2563eb", bg: "#dbeafe" },
+  cancelled: { label: "Cancelado", color: "#94a3b8", bg: "#f1f5f9" },
+  unknown: { label: "—", color: "#94a3b8", bg: "#f1f5f9" },
 };
+
+export function goalStatusMeta(status: string) {
+  return GOAL_STATUS_META[status] ?? GOAL_STATUS_META.unknown;
+}
 
 // ─── Squad metadata ─────────────────────────────────────────────────────────
 export const SQUAD_META: Record<Squad, { color: string; bg: string }> = {
@@ -112,56 +122,27 @@ function extractSection(doc: AdfNode | null | undefined, heading: string): strin
 }
 
 // ─── Parsers ─────────────────────────────────────────────────────────────────
-function extractKR(summary: string): KRKey {
-  const match = summary.match(/\[KR(\d+)\]/i);
-  if (match) {
-    const n = parseInt(match[1]);
-    if (n >= 1 && n <= 5) return `KR${n}` as KRKey;
-  }
-  return "Sem OKR";
-}
-
 function cleanSummary(summary: string): string {
   return summary.replace(/\[KR\d+\]\s*/gi, "").replace(/^[\p{Emoji}\s]+/u, "").trim();
 }
 
-// Board ID → Squad mapping (confirmed from Jira)
-const BOARD_SQUAD: Record<number, Squad> = {
-  628: "Jornada do Paciente",
-  629: "Jornada do Profissional",
-  630: "HR Experience",
-  67: "Jornada do Parceiro",
-};
+// ─── Squad via campo Team (customfield_10001) ────────────────────────────────
+// O Team no Jira vem como "Squad <Nome da Jornada>" (ex.: "Squad HR Experience").
+// Normalizamos removendo o prefixo "Squad " e casando, sem diferenciar maiúsculas,
+// contra as squads conhecidas. Retorna null quando o Team está vazio ou não mapeia
+// para nenhuma squad conhecida — esses épicos são ocultados.
+const KNOWN_SQUADS = (Object.keys(SQUAD_META) as Squad[]).filter((s) => s !== "Outros");
 
-function detectSquad(sprints: { name: string; boardId?: number }[] | null): Squad {
-  if (!sprints || sprints.length === 0) return "Outros";
-  // Prefer boardId-based detection (most reliable)
-  for (const s of sprints) {
-    if (s.boardId && BOARD_SQUAD[s.boardId]) return BOARD_SQUAD[s.boardId];
-  }
-  // Fallback: sprint name regex
-  const name = sprints[0].name.toLowerCase();
-  if (/paciente|aplicativo/i.test(name)) return "Jornada do Paciente";
-  if (/parceiro/i.test(name)) return "Jornada do Parceiro";
-  if (/prof(issional)?/i.test(name)) return "Jornada do Profissional";
-  if (/hr|experience/i.test(name)) return "HR Experience";
-  return "Outros";
+function teamToSquad(team: { name?: string; title?: string } | null | undefined): Squad | null {
+  const raw = (team?.name ?? team?.title ?? "").trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/^squad\s+/i, "").trim().toLowerCase();
+  return KNOWN_SQUADS.find((s) => s.toLowerCase() === normalized) ?? null;
 }
 
-// For epics with no sprint assignment, infer squad from OKR key
-function krToDefaultSquad(kr: KRKey): Squad {
-  switch (kr) {
-    case "KR5": return "HR Experience";
-    case "KR4": return "Jornada do Profissional";
-    case "KR3": return "Jornada do Parceiro";
-    case "KR1":
-    case "KR2":
-      return "Jornada do Paciente";
-    default:
-      return "Outros";
-  }
-}
-
+// Classificação dirigida pela SPRINT (não mais por palavras-chave do status):
+// estados terminais (finalizado/homologando) têm prioridade; depois, sprint
+// ativa → "atual", sprint futura → "próximo".
 function epicRoadmapStatus(
   jiraStatus: string,
   isInActiveSprint: boolean,
@@ -170,88 +151,132 @@ function epicRoadmapStatus(
   const s = jiraStatus.toUpperCase();
   if (s === "FINALIZADO" || s === "DONE") return "done";
   if (s === "HOMOLOGANDO") return "in_test";
-  if (isInActiveSprint || s === "DESENVOLVENDO" || s === "REFINAMENTO") return "current";
-  if (isInNextSprint || s === "PROTÓTIPO") return "next";
+  if (isInActiveSprint) return "current";
+  if (isInNextSprint) return "next";
   return "backlog";
 }
 
-function sprintRange(
-  status: RoadmapStatus,
-  currentSprint: number
-): { start: number; end: number } {
-  switch (status) {
-    case "done":
-      return { start: Math.max(1, currentSprint - 1), end: Math.max(1, currentSprint - 1) };
-    case "in_test":
-      return { start: currentSprint, end: currentSprint };
-    case "current":
-      return { start: currentSprint, end: Math.min(TOTAL_SPRINTS, currentSprint + 1) };
-    case "next":
-      return {
-        start: Math.min(TOTAL_SPRINTS, currentSprint + 1),
-        end: Math.min(TOTAL_SPRINTS, currentSprint + 2),
-      };
-    case "backlog":
-      return {
-        start: Math.min(TOTAL_SPRINTS, currentSprint + 2),
-        end: Math.min(TOTAL_SPRINTS, currentSprint + 3),
-      };
-  }
+// ─── Janela de trabalho do épico (datas reais) ───────────────────────────────
+// Híbrido: usa Start date / Due date do épico quando preenchidos; para cada
+// extremo que faltar, cai para o span das sprints (min início / max fim de todas
+// as sprints do épico). Isso resolve épicos que passam por mais de uma sprint
+// (não precisamos escolher uma) e nunca fica vazio, pois a sprint ativa sempre
+// tem datas.
+function toISODate(d: string | null | undefined): string | null {
+  if (!d) return null;
+  return d.slice(0, 10); // normaliza datetime → yyyy-mm-dd
+}
+
+// Próxima sprint do ciclo (datas do ciclo), usada como fallback de posição para
+// épicos de sprint futura que não têm datas próprias nem Start/Due preenchidos.
+function nextCycleWindow(): { start: string; end: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming =
+    CYCLE_SPRINTS.find((s) => s.startDate > today) ??
+    CYCLE_SPRINTS.find((s) => s.isCurrent) ??
+    CYCLE_SPRINTS[CYCLE_SPRINTS.length - 1];
+  return { start: upcoming.startDate, end: upcoming.endDate };
+}
+
+function epicWindow(epic: JiraIssue): {
+  startDate: string;
+  endDate: string;
+  dateSource: "epic" | "sprint" | "mixed";
+  sprints: SprintInfo[];
+} {
+  const sprints: SprintInfo[] = (epic.fields.customfield_10020 ?? []).map((s) => ({
+    name: s.name,
+    state: s.state,
+    startDate: toISODate(s.startDate),
+    endDate: toISODate(s.endDate),
+  }));
+
+  const sprintStarts = sprints.map((s) => s.startDate).filter((d): d is string => !!d).sort();
+  const sprintEnds = sprints.map((s) => s.endDate).filter((d): d is string => !!d).sort();
+  const sprintStart = sprintStarts[0] ?? null;
+  const sprintEnd = sprintEnds[sprintEnds.length - 1] ?? null;
+
+  const explicitStart = toISODate(epic.fields.customfield_10015);
+  const explicitEnd = toISODate(epic.fields.duedate);
+
+  // Híbrido: Start/Due do épico (quando existem) → datas da sprint → próxima
+  // sprint do ciclo (fallback para sprints futuras sem data definida).
+  const start = explicitStart ?? sprintStart;
+  const end = explicitEnd ?? sprintEnd;
+
+  // Procedência por extremo, para transparência no card.
+  let dateSource: "epic" | "sprint" | "mixed";
+  if (explicitStart && explicitEnd) dateSource = "epic";
+  else if (!explicitStart && !explicitEnd) dateSource = "sprint";
+  else dateSource = "mixed";
+
+  // Fallback final: se ainda faltar algum extremo (ex.: sprint futura sem data
+  // e sem Start/Due), usa a próxima sprint do ciclo.
+  const fb = nextCycleWindow();
+  const safeStart = start ?? end ?? fb.start;
+  let safeEnd = end ?? start ?? fb.end;
+  if (safeStart && safeEnd && safeEnd < safeStart) safeEnd = safeStart;
+
+  return { startDate: safeStart, endDate: safeEnd, dateSource, sprints };
 }
 
 // ─── Main transform ──────────────────────────────────────────────────────────
-export function transformToRoadmap(
-  epics: JiraIssue[],
-  activeStories: JiraIssue[],
-  nextStories: JiraIssue[]
-): RoadmapData {
+export function transformToRoadmap(epics: JiraIssue[], goals: Goal[]): RoadmapData {
   const curSprint = currentSprintNumber();
 
-  const activeEpicKeys = new Set(
-    activeStories.flatMap((s) => (s.fields.parent ? [s.fields.parent.key] : []))
-  );
-  const nextEpicKeys = new Set(
-    nextStories.flatMap((s) => (s.fields.parent ? [s.fields.parent.key] : []))
-  );
+  // Índice de Goals por ARI, para ligar cada épico ao(s) seu(s) OKR(s).
+  const goalsById = new Map(goals.map((g) => [g.id, g]));
 
-  const roadmapEpics: RoadmapEpic[] = epics.map((epic) => {
-    const kr = extractKR(epic.fields.summary);
-    const jiraStatus = epic.fields.status.name;
-    // Use sprint state directly from the epic's own sprint data (most reliable)
-    const epicSprints = epic.fields.customfield_10020 ?? [];
-    const hasActiveSprint = epicSprints.some((s) => s.state === "active");
-    const hasFutureSprint = epicSprints.some((s) => s.state === "future");
-    // Also check story-based detection as fallback
-    const isActive = hasActiveSprint || activeEpicKeys.has(epic.key);
-    const isNext = !isActive && (hasFutureSprint || nextEpicKeys.has(epic.key));
-    const roadmapStatus = epicRoadmapStatus(jiraStatus, isActive, isNext);
-    const { start, end } = sprintRange(roadmapStatus, curSprint);
-    const sprints = epic.fields.customfield_10020;
-    const squad = sprints && sprints.length > 0
-      ? detectSquad(sprints)
-      : krToDefaultSquad(kr);
-    const desc = epic.fields.description;
+  const roadmapEpics: RoadmapEpic[] = epics
+    .map((epic): RoadmapEpic | null => {
+      // ── Filtro de inclusão ───────────────────────────────────────────────
+      // Regra: Team válido E sprint ativa OU futura no próprio épico.
+      const squad = teamToSquad(epic.fields.customfield_10001);
+      const epicSprints = epic.fields.customfield_10020 ?? [];
+      const hasActiveSprint = epicSprints.some((s) => s.state === "active");
+      const hasFutureSprint = epicSprints.some((s) => s.state === "future");
+      if (!squad || (!hasActiveSprint && !hasFutureSprint)) return null;
 
-    const objective = extractSection(desc, "Key Result") || extractSection(desc, "Meta");
-    const productThesis = extractSection(desc, "Por que importa") || extractSection(desc, "Objetivo");
+      const jiraStatus = epic.fields.status.name;
+      // Classificação dirigida pela sprint: ativa → atual; só futura → próximo.
+      const isActive = hasActiveSprint;
+      const isNext = !hasActiveSprint && hasFutureSprint;
+      const roadmapStatus = epicRoadmapStatus(jiraStatus, isActive, isNext);
+      const { startDate, endDate, dateSource, sprints } = epicWindow(epic);
+      const desc = epic.fields.description;
 
-    return {
-      key: epic.key,
-      summary: epic.fields.summary,
-      cleanSummary: cleanSummary(epic.fields.summary),
-      status: jiraStatus,
-      roadmapStatus,
-      squad,
-      kr,
-      krTitle: KR_META[kr].label,
-      objective: objective.slice(0, 300),
-      productThesis: productThesis.slice(0, 300),
-      sprintStart: start,
-      sprintEnd: end,
-      jiraUrl: `https://starbemapp.atlassian.net/browse/${epic.key}`,
-      priority: epic.fields.priority?.name ?? "Medium",
-    };
-  });
+      // OKRs reais vinculados via campo Goals (customfield_10049 → ARIs).
+      const epicGoals: GoalRef[] = (epic.fields.customfield_10049 ?? [])
+        .map((ref) => {
+          const g = goalsById.get(ref.id);
+          return g
+            ? { id: g.id, key: g.key, name: g.name }
+            : { id: ref.id, key: "—", name: "Goal vinculado (não resolvido)" };
+        });
+
+      const objective = extractSection(desc, "Key Result") || extractSection(desc, "Meta");
+      const productThesis = extractSection(desc, "Por que importa") || extractSection(desc, "Objetivo");
+
+      return {
+        key: epic.key,
+        summary: epic.fields.summary,
+        cleanSummary: cleanSummary(epic.fields.summary),
+        status: jiraStatus,
+        roadmapStatus,
+        squad,
+        goals: epicGoals,
+        hasGoal: epicGoals.length > 0,
+        objective: objective.slice(0, 300),
+        productThesis: productThesis.slice(0, 300),
+        startDate,
+        endDate,
+        dateSource,
+        sprints,
+        jiraUrl: `https://starbemapp.atlassian.net/browse/${epic.key}`,
+        priority: epic.fields.priority?.name ?? "Medium",
+      };
+    })
+    .filter((e): e is RoadmapEpic => e !== null);
 
   // Sort: done first within each squad group
   roadmapEpics.sort((a, b) => {
@@ -259,30 +284,47 @@ export function transformToRoadmap(
     return STATUS_ORDER[a.roadmapStatus] - STATUS_ORDER[b.roadmapStatus];
   });
 
-  // KR stats
-  const krStats: KRStats[] = (Object.keys(KR_META) as KRKey[]).map((kr) => {
-    const epicsForKR = roadmapEpics.filter((e) => e.kr === kr);
-    const bySquad: Partial<Record<Squad, number>> = {};
-    for (const e of epicsForKR) {
-      bySquad[e.squad] = (bySquad[e.squad] ?? 0) + 1;
-    }
-    return {
-      key: kr,
-      label: KR_META[kr].label,
-      color: KR_META[kr].color,
-      count: epicsForKR.length,
-      epics: epicsForKR,
-      bySquad,
-    };
-  });
+  // ── Cobertura Épicos × OKRs ──────────────────────────────────────────────
+  // Para cada Goal, quais épicos do roadmap contribuem para ele.
+  const byGoal: GoalCoverage[] = goals
+    .map((goal) => ({
+      goal,
+      epics: roadmapEpics.filter((e) => e.goals.some((g) => g.id === goal.id)),
+    }))
+    .filter((gc) => gc.epics.length > 0)
+    .sort((a, b) => b.epics.length - a.epics.length);
+
+  const linkedGoalIds = new Set(byGoal.map((gc) => gc.goal.id));
+  const unlinkedGoals = goals.filter((g) => !linkedGoalIds.has(g.id));
+
+  const withGoal = roadmapEpics.filter((e) => e.hasGoal).length;
+  const totalEpicsForOkr = roadmapEpics.length;
+
+  const okr: OKRSummary = {
+    totalEpics: totalEpicsForOkr,
+    withGoal,
+    withoutGoal: totalEpicsForOkr - withGoal,
+    coveragePct: totalEpicsForOkr > 0 ? Math.round((withGoal / totalEpicsForOkr) * 100) : 0,
+    bySquad: (Object.keys(SQUAD_META) as Squad[])
+      .map((squad) => {
+        const eps = roadmapEpics.filter((e) => e.squad === squad);
+        const wg = eps.filter((e) => e.hasGoal).length;
+        return {
+          squad,
+          total: eps.length,
+          withGoal: wg,
+          pct: eps.length > 0 ? Math.round((wg / eps.length) * 100) : 0,
+        };
+      })
+      .filter((s) => s.total > 0),
+    byGoal,
+    unlinkedGoals,
+    epicsWithoutGoal: roadmapEpics.filter((e) => !e.hasGoal),
+  };
 
   // Squad stats
   const squadStats: SquadStats[] = (Object.keys(SQUAD_META) as Squad[]).map((squad) => {
     const epicsForSquad = roadmapEpics.filter((e) => e.squad === squad);
-    const byKR: Partial<Record<KRKey, number>> = {};
-    for (const e of epicsForSquad) {
-      byKR[e.kr] = (byKR[e.kr] ?? 0) + 1;
-    }
     return {
       squad,
       color: SQUAD_META[squad].color,
@@ -292,7 +334,7 @@ export function transformToRoadmap(
       current: epicsForSquad.filter((e) => e.roadmapStatus === "current").length,
       next: epicsForSquad.filter((e) => e.roadmapStatus === "next").length,
       backlog: epicsForSquad.filter((e) => e.roadmapStatus === "backlog").length,
-      byKR,
+      withGoal: epicsForSquad.filter((e) => e.hasGoal).length,
       currentEpics: epicsForSquad.filter((e) =>
         ["current", "in_test"].includes(e.roadmapStatus)
       ),
@@ -309,7 +351,8 @@ export function transformToRoadmap(
       currentSprintNumber: curSprint,
     },
     epics: roadmapEpics,
-    krStats,
+    goals,
+    okr,
     squadStats,
     summary: {
       total,
