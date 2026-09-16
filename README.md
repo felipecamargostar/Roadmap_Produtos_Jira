@@ -52,12 +52,18 @@ types/
 
 ## Squads monitorados
 
-| Board ID | Squad |
-|----------|-------|
-| 628 | Jornada do Paciente |
-| 629 | Jornada do Profissional |
-| 630 | HR Experience |
-| 67  | Jornada do Parceiro |
+| Board ID | Squad (chave = Team no Jira) | Nome exibido |
+|----------|------------------------------|--------------|
+| 628 | Jornada do Paciente | **HR Experience** |
+| 629 | Jornada do Profissional | Jornada do Profissional |
+| 67  | Jornada do Parceiro | Jornada do Parceiro |
+
+O board 630 (`Squad HR Experience` no Jira) nao e mais exibido no roadmap: o Team
+nao casa com nenhuma squad conhecida e os epicos ficam ocultos.
+
+Os nomes exibidos ficam em `SQUAD_LABELS` (`lib/transform.ts`). As chaves internas
+continuam iguais ao campo Team do Jira — renomear um Team no Jira exige atualizar a
+chave; trocar so o rotulo da tela exige mudar apenas `SQUAD_LABELS`.
 
 ## Calendario — Ciclo 2
 
@@ -86,11 +92,12 @@ Objetivo pai: **[OBJECTIVE] Crescimento e Profundidade do Ecossistema Starbem** 
 
 ## Deteccao de Squad
 
-Ordem de prioridade para atribuir squad a um epico:
+A squad vem do campo **Team** do Jira (`customfield_10001`), que chega como
+`Squad <Nome da Jornada>`. O prefixo `Squad ` e removido e o restante e casado
+(sem diferenciar maiusculas) contra as chaves conhecidas em `SQUAD_META`.
 
-1. **BoardId do sprint** — `customfield_10020[].boardId` (mais confiavel)
-2. **Nome do sprint** — regex como fallback
-3. **KR do epico** — para epicos sem sprint atribuido (KR5->HR Experience, KR4->Profissional, KR3->Parceiro, KR1/KR2->Paciente)
+Epicos cujo Team esta vazio ou nao casa com nenhuma chave conhecida ficam **fora
+do roadmap** — e o caso do board 630 (`Squad HR Experience`).
 
 ## Variaveis de ambiente (Vercel)
 

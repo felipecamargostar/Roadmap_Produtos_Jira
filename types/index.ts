@@ -2,17 +2,20 @@
  * types/index.ts — Shared TypeScript interfaces for the Starbem Roadmap
  *
  * Squad board IDs (Jira):
- *   628 → Jornada do Paciente
+ *   628 → Jornada do Paciente — exibida como "HR Experience" (ver SQUAD_LABELS)
  *   629 → Jornada do Profissional
- *   630 → HR Experience
  *    67 → Jornada do Parceiro
+ *
+ * O board 630 ("Squad HR Experience" no Jira) foi retirado do roadmap: o Team
+ * deixa de casar com uma squad conhecida e seus épicos não são exibidos.
+ * As chaves abaixo continuam iguais ao campo Team do Jira; o nome mostrado na
+ * tela vem de SQUAD_LABELS (lib/transform.ts).
  */
 
 export type Squad =
   | "Jornada do Paciente"
   | "Jornada do Parceiro"
   | "Jornada do Profissional"
-  | "HR Experience"
   | "Outros";
 
 export type RoadmapStatus = "done" | "in_test" | "current" | "next" | "backlog";

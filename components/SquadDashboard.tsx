@@ -1,7 +1,7 @@
 "use client";
 
 import type { RoadmapData, SquadStats, RoadmapEpic } from "@/types";
-import { SQUAD_META, STATUS_META } from "@/lib/transform";
+import { SQUAD_META, STATUS_META, squadLabel } from "@/lib/transform";
 
 interface Props {
   data: RoadmapData;
@@ -87,7 +87,7 @@ function SquadCard({ stats, currentSprint }: { stats: SquadStats; currentSprint:
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ background: m.color }} />
             <h3 className="text-sm font-bold" style={{ color: m.color }}>
-              {stats.squad}
+              {squadLabel(stats.squad)}
             </h3>
           </div>
           <div className="text-right">
@@ -237,7 +237,7 @@ function SquadMatrix({ data }: { data: RoadmapData }) {
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
-                      <span className="font-medium text-gray-700">{stat.squad}</span>
+                      <span className="font-medium text-gray-700">{squadLabel(stat.squad)}</span>
                     </div>
                   </td>
                   <td className="text-center px-3 py-2.5 font-semibold text-emerald-600">{stat.done}</td>
