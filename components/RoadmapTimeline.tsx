@@ -430,8 +430,10 @@ export default function RoadmapTimeline({ data }: Props) {
         </span>
       </div>
 
-      {/* Timeline */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Timeline — "isolate" cria um contexto de empilhamento proprio: as
+          barras dos epicos, a linha de hoje e a pilula "hoje" (z-10/20/30)
+          ficam contidas aqui e nunca sobem por cima do cabecalho fixo. */}
+      <div className="isolate overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <div style={{ minWidth }}>
           {/* Cabeçalho: meses + sprints + hoje */}
           <div className="flex bg-gray-50 border-b border-gray-200">
