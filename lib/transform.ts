@@ -69,6 +69,7 @@ export function goalStatusMeta(status: string) {
 // ─── Squad metadata ─────────────────────────────────────────────────────────
 export const SQUAD_META: Record<Squad, { color: string; bg: string }> = {
   "Jornada do Paciente": { color: "#2563eb", bg: "#eff6ff" },
+  "HR Experience": { color: "#d97706", bg: "#fffbeb" },
   "Jornada do Parceiro": { color: "#059669", bg: "#ecfdf5" },
   "Jornada do Profissional": { color: "#7c3aed", bg: "#f5f3ff" },
   Outros: { color: "#64748b", bg: "#f8fafc" },
@@ -76,9 +77,11 @@ export const SQUAD_META: Record<Squad, { color: string; bg: string }> = {
 
 // ─── Nome exibido de cada squad ─────────────────────────────────────────────
 // A chave continua sendo o valor do campo Team no Jira ("Squad <chave>"); só o
-// rótulo na tela muda. "Jornada do Paciente" é apresentada como "HR Experience".
+// rótulo na tela muda. "Jornada do Paciente" é apresentada como "HR Experience"
+// e a antiga "HR Experience" (board 630) como "HR Foundation".
 export const SQUAD_LABELS: Record<Squad, string> = {
   "Jornada do Paciente": "HR Experience",
+  "HR Experience": "HR Foundation",
   "Jornada do Parceiro": "Jornada do Parceiro",
   "Jornada do Profissional": "Jornada do Profissional",
   Outros: "Outros",

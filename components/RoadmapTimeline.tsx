@@ -13,9 +13,11 @@ interface Props {
 }
 
 // Ordem de exibição das faixas. A chave é o Team do Jira; o nome mostrado vem
-// de squadLabel() — "Jornada do Paciente" aparece como "HR Experience".
+// de squadLabel(): "Jornada do Paciente" aparece como "HR Experience" e
+// "HR Experience" (board 630) logo abaixo, como "HR Foundation".
 const SQUADS: Squad[] = [
   "Jornada do Paciente",
+  "HR Experience",
   "Jornada do Parceiro",
   "Jornada do Profissional",
   "Outros",
