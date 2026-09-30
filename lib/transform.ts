@@ -13,40 +13,99 @@ import type {
   SquadStats,
 } from "@/types";
 
-// ─── Cycle 2 definition ─────────────────────────────────────────────────────
-// Sprints run Mon→Fri×2 weeks (business days only, no weekends)
-// Each sprint: start on Monday, end on Friday 11 calendar days later
-// Next sprint starts 14 calendar days after the previous start
-// Sprint 1: 27 Apr → 08 May | Sprint 2: 11 May → 22 May | Sprint 3: 25 May → 05 Jun ...
-const CYCLE_START = new Date("2026-04-27"); // Monday
-const CYCLE_NUMBER = 2;
-const SPRINT_CALENDAR_DURATION = 11; // Mon to Fri (inclusive) = 11 calendar days
-const SPRINT_INTERVAL = 14;          // calendar days between sprint starts
-const TOTAL_SPRINTS = 8;
+// ─── Calendario de ciclos e sprints ──────────────────────────────────────────
+// Sprints de duas semanas uteis: comecam na segunda e terminam na sexta 11 dias
+// corridos depois; a seguinte comeca 14 dias apos o inicio da anterior. Um ciclo
+// tem 8 sprints (112 dias corridos) e os ciclos se sucedem sem intervalo.
+//
+// O ciclo exibido e derivado da data de hoje a partir da ancora abaixo — antes
+// o calendario era uma lista fixa de 8 sprints e parava em 14/08/2026. Se o
+// calendario oficial mudar (pausa entre ciclos, ciclo de outro tamanho), ajuste
+// a ancora e as constantes; o resto acompanha.
+const SPRINT_ANCHOR = "2026-04-27";   // segunda-feira — Sprint 1 do Ciclo 2
+const ANCHOR_CYCLE_NUMBER = 2;
+const SPRINT_CALENDAR_DURATION = 11;  // segunda -> sexta da semana seguinte
+const SPRINT_INTERVAL = 14;           // dias corridos entre inicios de sprint
+const SPRINTS_PER_CYCLE = 8;
+const CYCLE_LENGTH_DAYS = SPRINT_INTERVAL * SPRINTS_PER_CYCLE;
+const DAY_MS = 86_400_000;
 
-export const CYCLE_SPRINTS: CycleSprint[] = Array.from({ length: TOTAL_SPRINTS }, (_, i) => {
-  const start = new Date(CYCLE_START);
-  start.setDate(start.getDate() + i * SPRINT_INTERVAL);
-  const end = new Date(start);
-  end.setDate(end.getDate() + SPRINT_CALENDAR_DURATION);
+function isoToMs(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+function addDays(iso: string, days: number): string {
+  return new Date(isoToMs(iso) + days * DAY_MS).toISOString().slice(0, 10);
+}
 
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "");
+// Hoje no fuso do servidor, como yyyy-mm-dd. Nao passa por toISOString(), que
+// viraria o dia no fim da tarde em fuso brasileiro.
+export function todayISO(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
-  const today = new Date();
-  return {
-    number: i + 1,
-    label: `Sprint ${i + 1}`,
-    range: `${fmt(start)} – ${fmt(end)}`,
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-    isCurrent: today >= start && today <= end,
-    isPast: today > end,
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+function fmtRange(startDate: string, endDate: string): string {
+  const fmt = (iso: string) => {
+    const [, m, d] = iso.split("-").map(Number);
+    return `${String(d).padStart(2, "0")} ${MONTHS_PT[m - 1]}`;
   };
-});
+  return `${fmt(startDate)} – ${fmt(endDate)}`;
+}
 
-export function currentSprintNumber(): number {
-  return CYCLE_SPRINTS.find((s) => s.isCurrent)?.number ?? 3;
+function buildSprints(cycleStart: string, today: string): CycleSprint[] {
+  return Array.from({ length: SPRINTS_PER_CYCLE }, (_, i) => {
+    const startDate = addDays(cycleStart, i * SPRINT_INTERVAL);
+    const endDate = addDays(startDate, SPRINT_CALENDAR_DURATION);
+    return {
+      number: i + 1,
+      label: `Sprint ${i + 1}`,
+      range: fmtRange(startDate, endDate),
+      startDate,
+      endDate,
+      isCurrent: today >= startDate && today <= endDate,
+      isPast: today > endDate,
+    };
+  });
+}
+
+// Ciclo que contem a data informada (ou o ciclo da ancora, se for anterior a ela).
+export function resolveCycle(today: string = todayISO()): {
+  number: number;
+  startDate: string;
+  endDate: string;
+  sprints: CycleSprint[];
+} {
+  const elapsed = Math.floor((isoToMs(today) - isoToMs(SPRINT_ANCHOR)) / DAY_MS);
+  const index = elapsed < 0 ? 0 : Math.floor(elapsed / CYCLE_LENGTH_DAYS);
+  const startDate = addDays(SPRINT_ANCHOR, index * CYCLE_LENGTH_DAYS);
+  const sprints = buildSprints(startDate, today);
+  return {
+    number: ANCHOR_CYCLE_NUMBER + index,
+    startDate,
+    endDate: sprints[sprints.length - 1].endDate,
+    sprints,
+  };
+}
+
+// Calculado por chamada (e nao uma vez no import) para que um processo de vida
+// longa nao sirva um ciclo velho depois da virada do dia.
+export function cycleSprints(today: string = todayISO()): CycleSprint[] {
+  return resolveCycle(today).sprints;
+}
+
+// Sprint corrente. No fim de semana entre duas sprints cai na proxima a comecar
+// e, passado o fim do ciclo, na ultima.
+export function currentSprintNumber(today: string = todayISO()): number {
+  const sprints = cycleSprints(today);
+  return (
+    sprints.find((s) => s.isCurrent) ??
+    sprints.find((s) => s.startDate > today) ??
+    sprints[sprints.length - 1]
+  ).number;
 }
 
 // ─── Goal (OKR) status metadata ──────────────────────────────────────────────
@@ -173,8 +232,8 @@ function epicRoadmapStatus(
   if (isInActiveSprint) return "current";
   if (isInNextSprint) return "next";
   if (startDate) {
-    const today = new Date().toISOString().slice(0, 10);
-    const nextSprint = CYCLE_SPRINTS.find((sp) => sp.startDate > today);
+    const today = todayISO();
+    const nextSprint = cycleSprints(today).find((sp) => sp.startDate > today);
     if (nextSprint && startDate >= nextSprint.startDate && startDate <= nextSprint.endDate) {
       return "next";
     }
@@ -196,11 +255,12 @@ function toISODate(d: string | null | undefined): string | null {
 // Próxima sprint do ciclo (datas do ciclo), usada como fallback de posição para
 // épicos de sprint futura que não têm datas próprias nem Start/Due preenchidos.
 function nextCycleWindow(): { start: string; end: string } {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
+  const sprints = cycleSprints(today);
   const upcoming =
-    CYCLE_SPRINTS.find((s) => s.startDate > today) ??
-    CYCLE_SPRINTS.find((s) => s.isCurrent) ??
-    CYCLE_SPRINTS[CYCLE_SPRINTS.length - 1];
+    sprints.find((s) => s.startDate > today) ??
+    sprints.find((s) => s.isCurrent) ??
+    sprints[sprints.length - 1];
   return { start: upcoming.startDate, end: upcoming.endDate };
 }
 
@@ -248,7 +308,9 @@ function epicWindow(epic: JiraIssue): {
 
 // ─── Main transform ──────────────────────────────────────────────────────────
 export function transformToRoadmap(epics: JiraIssue[], goals: Goal[]): RoadmapData {
-  const curSprint = currentSprintNumber();
+  const today = todayISO();
+  const cycle = resolveCycle(today);
+  const curSprint = currentSprintNumber(today);
 
   // Índice de Goals por ARI, para ligar cada épico ao(s) seu(s) OKR(s).
   const goalsById = new Map(goals.map((g) => [g.id, g]));
@@ -371,10 +433,10 @@ export function transformToRoadmap(epics: JiraIssue[], goals: Goal[]): RoadmapDa
   const total = roadmapEpics.length;
   return {
     cycle: {
-      number: CYCLE_NUMBER,
-      startDate: CYCLE_START.toISOString().slice(0, 10),
-      endDate: new Date("2026-08-14").toISOString().slice(0, 10), // Sprint 8 ends Fri 14 Aug
-      sprints: CYCLE_SPRINTS,
+      number: cycle.number,
+      startDate: cycle.startDate,
+      endDate: cycle.endDate,
+      sprints: cycle.sprints,
       currentSprintNumber: curSprint,
     },
     epics: roadmapEpics,

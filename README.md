@@ -1,6 +1,7 @@
 # Starbem Roadmap
 
-Ferramenta de roadmap conectada ao Jira para acompanhamento do Ciclo 2 (Abr–Ago 2026), compartilhada a cada 15 dias com CEO e CPTO.
+Ferramenta de roadmap conectada ao Jira, compartilhada a cada 15 dias com CEO e CPTO.
+O ciclo exibido acompanha a data de hoje (ver Calendario de ciclos).
 
 ## Stack
 
@@ -65,18 +66,21 @@ Os nomes exibidos ficam em `SQUAD_LABELS` (`lib/transform.ts`). As chaves intern
 continuam iguais ao campo Team do Jira — renomear um Team no Jira exige atualizar a
 chave; trocar so o rotulo da tela exige mudar apenas `SQUAD_LABELS`.
 
-## Calendario — Ciclo 2
+## Calendario de ciclos
 
-| Sprint | Periodo |
-|--------|---------|
-| S1 | 27 abr – 08 mai |
-| S2 | 11 mai – 22 mai |
-| S3 | 25 mai – 05 jun |
-| S4 | 08 jun – 19 jun |
-| S5 | 22 jun – 03 jul |
-| S6 | 06 jul – 17 jul |
-| S7 | 20 jul – 31 jul |
-| S8 | 03 ago – 14 ago |
+O calendario e derivado da data de hoje, nao e uma lista fixa (antes parava na
+Sprint 8 do Ciclo 2, em 14/08/2026).
+
+- Sprint: comeca na segunda e termina na sexta da semana seguinte (11 dias corridos).
+- A sprint seguinte comeca 14 dias apos o inicio da anterior.
+- Um ciclo tem 8 sprints (112 dias corridos); os ciclos se sucedem sem intervalo.
+- Ancora: `2026-04-27` = Sprint 1 do Ciclo 2 (`SPRINT_ANCHOR` em `lib/transform.ts`).
+
+Dai saem o numero do ciclo, sua janela e as 8 sprints exibidas. Exemplo: o Ciclo 3
+vai de 17/08/2026 a 04/12/2026, e o Ciclo 4 comeca em 07/12/2026.
+
+Se o calendario oficial mudar (pausa entre ciclos, ciclo com outro tamanho),
+ajuste a ancora e as constantes no topo de `lib/transform.ts`.
 
 ## OKRs — Ciclo 2
 
