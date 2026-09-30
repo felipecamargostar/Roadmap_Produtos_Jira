@@ -55,11 +55,11 @@ types/
 | Board ID | Squad (chave = Team no Jira) | Nome exibido |
 |----------|------------------------------|--------------|
 | 628 | Jornada do Paciente | **HR Experience** |
+| 630 | HR Experience | **HR Foundation** |
 | 629 | Jornada do Profissional | Jornada do Profissional |
 | 67  | Jornada do Parceiro | Jornada do Parceiro |
 
-O board 630 (`Squad HR Experience` no Jira) nao e mais exibido no roadmap: o Team
-nao casa com nenhuma squad conhecida e os epicos ficam ocultos.
+Na timeline, HR Foundation aparece logo abaixo de HR Experience.
 
 Os nomes exibidos ficam em `SQUAD_LABELS` (`lib/transform.ts`). As chaves internas
 continuam iguais ao campo Team do Jira — renomear um Team no Jira exige atualizar a
@@ -97,7 +97,7 @@ A squad vem do campo **Team** do Jira (`customfield_10001`), que chega como
 (sem diferenciar maiusculas) contra as chaves conhecidas em `SQUAD_META`.
 
 Epicos cujo Team esta vazio ou nao casa com nenhuma chave conhecida ficam **fora
-do roadmap** — e o caso do board 630 (`Squad HR Experience`).
+do roadmap**.
 
 ## Variaveis de ambiente (Vercel)
 
