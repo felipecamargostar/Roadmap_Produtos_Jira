@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { RoadmapData, GoalCoverage, Goal } from "@/types";
-import { SQUAD_META, STATUS_META, goalStatusMeta } from "@/lib/transform";
+import { SQUAD_META, STATUS_META, goalStatusMeta, squadLabel } from "@/lib/transform";
 
 interface Props {
   data: RoadmapData;
@@ -135,7 +135,7 @@ function GoalCard({ cov, rank }: { cov: GoalCoverage; rank: number }) {
                     className="ml-auto flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px]"
                     style={{ background: qm.bg, color: qm.color }}
                   >
-                    {epic.squad}
+                    {squadLabel(epic.squad)}
                   </span>
                   <span
                     className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px]"
@@ -206,7 +206,7 @@ export default function OKRDashboard({ data }: Props) {
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
-                      <span className="text-xs font-medium text-gray-700">{s.squad}</span>
+                      <span className="text-xs font-medium text-gray-700">{squadLabel(s.squad)}</span>
                     </div>
                     <span className="text-xs text-gray-500">
                       {s.withGoal}/{s.total} ·{" "}
@@ -275,7 +275,7 @@ export default function OKRDashboard({ data }: Props) {
                     className="ml-auto flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px]"
                     style={{ background: qm.bg, color: qm.color }}
                   >
-                    {epic.squad}
+                    {squadLabel(epic.squad)}
                   </span>
                   <span
                     className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px]"

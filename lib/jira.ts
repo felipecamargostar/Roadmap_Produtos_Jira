@@ -71,7 +71,7 @@ export interface JiraIssue {
     status: { name: string };
     priority: { name: string } | null;
     customfield_10020: JiraSprint[] | null;
-    // Team field — define a squad do épico (ex.: "Squad HR Experience")
+    // Team field — define a squad do épico (ex.: "Squad Jornada do Parceiro")
     customfield_10001: JiraTeam | null;
     // Goals field — OKRs do Jira (Atlassian Goals) vinculados ao épico.
     // Cada item traz apenas o ARI do goal; o nome/status é resolvido via GraphQL.

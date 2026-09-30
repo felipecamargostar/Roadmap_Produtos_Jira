@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { RoadmapData, RoadmapEpic, Squad, SprintInfo } from "@/types";
-import { STATUS_META, SQUAD_META } from "@/lib/transform";
+import { STATUS_META, SQUAD_META, squadLabel } from "@/lib/transform";
 
 const STATUS_ORDER: Record<RoadmapEpic["roadmapStatus"], number> = {
   done: 0, in_test: 1, current: 2, next: 3, backlog: 4,
@@ -12,11 +12,12 @@ interface Props {
   data: RoadmapData;
 }
 
+// Ordem de exibição das faixas. A chave é o Team do Jira; o nome mostrado vem
+// de squadLabel() — "Jornada do Paciente" aparece como "HR Experience".
 const SQUADS: Squad[] = [
   "Jornada do Paciente",
   "Jornada do Parceiro",
   "Jornada do Profissional",
-  "HR Experience",
   "Outros",
 ];
 
@@ -100,7 +101,7 @@ function DetailModal({ epic, onClose }: { epic: RoadmapEpic; onClose: () => void
                 className="text-xs px-2 py-0.5 rounded-full font-medium"
                 style={{ background: squad.bg, color: squad.color }}
               >
-                {epic.squad}
+                {squadLabel(epic.squad)}
               </span>
             </div>
             <h2 className="text-base font-semibold text-gray-900">{epic.cleanSummary}</h2>
@@ -407,7 +408,7 @@ export default function RoadmapTimeline({ data }: Props) {
           >
             <option value="all">Todos os Squads</option>
             {SQUADS.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{squadLabel(s)}</option>
             ))}
           </select>
         </div>
@@ -430,8 +431,10 @@ export default function RoadmapTimeline({ data }: Props) {
         </span>
       </div>
 
-      {/* Timeline */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Timeline — "isolate" cria um contexto de empilhamento proprio: as
+          barras dos epicos, a linha de hoje e a pilula "hoje" (z-10/20/30)
+          ficam contidas aqui e nunca sobem por cima do cabecalho fixo. */}
+      <div className="isolate overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <div style={{ minWidth }}>
           {/* Cabeçalho: meses + sprints + hoje */}
           <div className="flex bg-gray-50 border-b border-gray-200">
@@ -534,7 +537,7 @@ export default function RoadmapTimeline({ data }: Props) {
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m.color }} />
                   <span className="text-sm font-semibold" style={{ color: m.color }}>
-                    {squad}
+                    {squadLabel(squad)}
                   </span>
                   <span
                     className="ml-1 text-xs px-1.5 py-0.5 rounded-full font-medium"

@@ -71,9 +71,22 @@ export const SQUAD_META: Record<Squad, { color: string; bg: string }> = {
   "Jornada do Paciente": { color: "#2563eb", bg: "#eff6ff" },
   "Jornada do Parceiro": { color: "#059669", bg: "#ecfdf5" },
   "Jornada do Profissional": { color: "#7c3aed", bg: "#f5f3ff" },
-  "HR Experience": { color: "#d97706", bg: "#fffbeb" },
   Outros: { color: "#64748b", bg: "#f8fafc" },
 };
+
+// ─── Nome exibido de cada squad ─────────────────────────────────────────────
+// A chave continua sendo o valor do campo Team no Jira ("Squad <chave>"); só o
+// rótulo na tela muda. "Jornada do Paciente" é apresentada como "HR Experience".
+export const SQUAD_LABELS: Record<Squad, string> = {
+  "Jornada do Paciente": "HR Experience",
+  "Jornada do Parceiro": "Jornada do Parceiro",
+  "Jornada do Profissional": "Jornada do Profissional",
+  Outros: "Outros",
+};
+
+export function squadLabel(squad: Squad): string {
+  return SQUAD_LABELS[squad] ?? squad;
+}
 
 // ─── Status colours ─────────────────────────────────────────────────────────
 export const STATUS_META: Record<RoadmapStatus, { label: string; color: string; bg: string }> = {
@@ -127,7 +140,7 @@ function cleanSummary(summary: string): string {
 }
 
 // ─── Squad via campo Team (customfield_10001) ────────────────────────────────
-// O Team no Jira vem como "Squad <Nome da Jornada>" (ex.: "Squad HR Experience").
+// O Team no Jira vem como "Squad <Nome da Jornada>" (ex.: "Squad Jornada do Parceiro").
 // Normalizamos removendo o prefixo "Squad " e casando, sem diferenciar maiúsculas,
 // contra as squads conhecidas. Retorna null quando o Team está vazio ou não mapeia
 // para nenhuma squad conhecida — esses épicos são ocultados.
